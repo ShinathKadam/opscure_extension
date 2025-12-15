@@ -1,0 +1,54 @@
+# Node modules
+node_modules/
+
+# Compiled output
+out/
+dist/
+
+# VS Code extension packages
+*.vsix
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# Environment variables
+.env
+.env.*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# VS Code workspace settings (local only)
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/settings.json
+
+# Coverage reports
+coverage/
+
+# Temporary files
+tmp/
+temp/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Secrets / credentials
+.secrets/
+secrets/
+secret-store/
+secretStore/
+credentials/
+credentials.json
+secrets.json
+
+# Environment variables
+.env
+.env.*
