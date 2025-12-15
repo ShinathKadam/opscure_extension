@@ -1,65 +1,163 @@
-# opscure2 README
-
-This is the README for your extension "opscure2". After writing up a brief description, we recommend including the following sections.
-
-## Features
-
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
-
-For example if there is an image subfolder under your extension project workspace:
-
-\!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
-
-## Requirements
-
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
-
-## Extension Settings
-
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
-
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
-
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
+# Opscure VS Code Extension
 
 ---
 
-## Working with Markdown
+## 📌 Description
+**Opscure is a VS Code extension that helps developers fetch logs from a specified log file path, analyze them, and identify & fix issues using AI.**
+It simplifies debugging by continuously reading logs and providing AI-powered suggestions when issues are detected.
 
-You can author your README using Visual Studio Code.  Here are some useful editor keyboard shortcuts:
+---
 
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux)
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux)
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets
+## ✅ Features
 
-## For more information
+Fetch logs from a user-specified log file path
 
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
+Read latest logs from the bottom of the log file
 
-**Enjoy!**
+Analyze logs for errors and warnings
+
+AI-based issue detection and fix suggestions
+
+Secure handling of API keys using VS Code Secret Storage
+
+---
+
+## 🔧 Pre-requisites
+
+Before using the Opscure extension, ensure you have:
+
+Visual Studio Code
+
+Node.js
+
+A valid log file path
+
+An AI API key (stored securely)
+
+Application logs written to a file
+
+---
+
+## 🧩 Installation Requirements & Setup
+### 1️⃣ Install Visual Studio Code
+
+Download and install VS Code from:
+
+```arduino
+https://code.visualstudio.com/
+```
+
+### 2️⃣ Install Node.js (Required)
+
+Opscure requires Node.js to build and run the extension.
+
+Download Node.js (LTS version recommended):
+
+```arduino
+https://nodejs.org/
+```
+
+Verify installation:
+
+```bash
+node -v
+npm -v
+```
+
+### 3️⃣ Install Git
+
+Git is required to clone and manage the extension source code.
+
+Download Git:
+
+```arduino
+https://git-scm.com/downloads
+```
+
+Verify installation:
+
+```bash
+git --version
+```
+
+### 4️⃣ Install VS Code Extension Generator (For Development)
+
+Required to create and scaffold VS Code extensions.
+
+```bash
+npm install -g yo generator-code
+```
+
+Verify:
+
+```bash
+yo --version
+```
+
+---
+
+## 🚀 How It Runs
+### 1️⃣ Configure Log File
+
+Ensure your application writes logs to a file.
+
+If your app runs locally and does not store logs, restart it using:
+
+```bash
+your_command_here | Tee-Object -FilePath app.log
+```
+
+Replace:
+
+your_command_here → your application start command
+
+app.log → desired log file name
+
+### 2️⃣ Run the Extension Locally
+
+```bash
+npm install
+npm run compile
+```
+
+Press F5 in VS Code to launch the extension in a new Extension Development Host window.
+
+### 3️⃣ Log Analysis Flow
+
+Opscure reads logs continuously
+
+Latest logs are fetched from the bottom of the file
+
+Logs are sent to the AI engine
+
+Detected issues and fixes are displayed inside VS Code
+
+---
+
+## 🔐 Security
+
+API keys and UUIDs are stored using VS Code Secret Storage
+
+No secrets are committed or logged
+
+Secure communication with AI services
+
+---
+
+## 📦 Supported Logs
+
+Backend application logs
+
+Server logs
+
+Service logs
+
+Custom text-based log files
+
+---
+
+## 📄 License
+
+MIT License
+
+---
