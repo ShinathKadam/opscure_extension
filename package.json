@@ -6,20 +6,16 @@
   "engines": {
     "vscode": "^1.95.0"
   },
-  "enabledApiProposals": [
-    "terminalDataWriteEvent"
-  ],
+  "enabledApiProposals": ["terminalDataWriteEvent"],
   "main": "./extension.js",
-  "activationEvents": [
-    "onView:logFetcherView"
-  ],
+  "activationEvents": ["*"],
   "contributes": {
     "viewsContainers": {
       "activitybar": [
         {
           "id": "logFetcherContainer",
           "title": "OPSCURE",
-          "icon": "media/icon.svg"
+           "icon": "media/icon.svg"
         }
       ]
     },
@@ -31,28 +27,9 @@
           "type": "webview"
         }
       ]
-    },
-    "commands": [
-      {
-        "command": "logFetcher.configure",
-        "title": "Configure OPSCURE",
-        "icon": "$(gear)"
-      }
-    ],
-    "menus": {
-      "view/title": [
-        {
-          "command": "logFetcher.configure",
-          "when": "view == logFetcherView",
-          "group": "navigation"
-        }
-      ]
     }
   },
   "dependencies": {
-    "axios": "^1.13.2",
-    "dotenv": "^17.2.3",
-    "puppeteer": "^24.32.0",
-    "ws": "^8.18.0"
+    "axios": "^1.13.2"
   }
 }
