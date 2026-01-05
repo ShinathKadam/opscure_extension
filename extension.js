@@ -1,7 +1,73 @@
 const vscode = require("vscode");
 const axios = require("axios");
+const path = require("path");
+const { spawn } = require("child_process");
+const fs = require("fs");
+
+let goAgentProcess = null;
+let AGENT_BASE = null;
+
+function readAgentPort(extPath) {
+  try {
+    const p = path.join(extPath, "server", "go_agent", "agent.port");
+    return fs.readFileSync(p, "utf8").trim();
+  } catch {
+    return "8080"; // backward compatible fallback
+  }
+}
+
 
 function activate(context) {
+  /* =========================================================
+     START GO AGENT AS SIDECAR (FIXED & CORRECT)
+     ========================================================= */
+  try {
+    const agentPort = readAgentPort(context.extensionPath);
+    AGENT_BASE = `http://127.0.0.1:${agentPort}`;
+
+    const isWin = process.platform === "win32";
+
+    const goAgentBinary = isWin ? "go-agent.exe" : "go-agent";
+
+    const goAgentPath = path.join(
+      context.extensionPath,
+      "server",
+      goAgentBinary
+    );
+
+    // IMPORTANT: config.yaml lives here
+    const goAgentCwd = path.join(
+      context.extensionPath,
+      "server",
+      "go_agent"
+    );
+
+    goAgentProcess = spawn(goAgentPath, [], {
+      cwd: goAgentCwd,
+      windowsHide: true,
+      detached: false,
+      stdio: "inherit"
+    });
+
+    goAgentProcess.unref();
+
+    context.subscriptions.push({
+      dispose: () => {
+        if (goAgentProcess) {
+          try {
+            process.kill(goAgentProcess.pid);
+          } catch (e) {}
+          goAgentProcess = null;
+        }
+      }
+    });
+  } catch (err) {
+    vscode.window.showErrorMessage("Failed to start Go agent sidecar");
+  }
+
+  /* =========================================================
+     EXISTING CODE (UNCHANGED)
+     ========================================================= */
   const provider = new LogFetcherViewProvider();
 
   context.subscriptions.push(
@@ -67,7 +133,14 @@ function activate(context) {
   vscode.window.showInformationMessage("OPSCURE Activated!");
 }
 
-function deactivate() {}
+function deactivate() {
+  if (goAgentProcess) {
+    try {
+      process.kill(goAgentProcess.pid);
+    } catch (e) {}
+    goAgentProcess = null;
+  }
+}
 
 class LogFetcherViewProvider {
   constructor() {
@@ -93,7 +166,6 @@ class LogFetcherViewProvider {
   }
 
   postParsedLog(log) {
-    // Always ensure severity is defined
     const parsedLog = {
       severity: log.severity || "INFO",
       message: log.message || "",
@@ -142,12 +214,11 @@ class LogFetcherViewProvider {
     };
 
     const res = await axios.post(
-      "http://127.0.0.1:8080/logs/preprocess",
+      `${AGENT_BASE}/logs/preprocess`,
       requestBody,
       { headers: { "Content-Type": "application/json" } }
     );
 
-    // Only latest analyze response
     this.view?.webview.postMessage({
       type: "analyzeResponse",
       data: res.data
@@ -280,7 +351,6 @@ window.addEventListener("message", e => {
   }
 
   if(type==="analyzeResponse"){
-    // Clear old response
     document.getElementById("preprocessRes").innerHTML="";
     document.getElementById("analyzeRes").innerHTML="";
 
@@ -321,7 +391,7 @@ function detectSeverity(text) {
 
 async function sendBatch(payload, provider) {
   const res = await axios.post(
-    "http://localhost:8080/stream/ingest",
+    `${AGENT_BASE}/stream/ingest`,
     payload,
     { headers: { "Content-Type": "application/json" } }
   );
