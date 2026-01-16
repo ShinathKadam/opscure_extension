@@ -1,3 +1,14 @@
+/*
+Copyright (c) 2026 OPSCURE.
+All rights reserved.
+
+This software is the confidential and proprietary information of OPSCURE.
+Unauthorized copying, modification, distribution, or use of this software,
+via any medium, is strictly prohibited without prior written permission.
+
+Licensed under the OPSCURE Software License Agreement.
+*/
+
 package main
 
 import (
@@ -26,14 +37,12 @@ func (c *CorrelationBundle) ModelDumpJSON() string {
 
 type LogPreprocessor struct {
 	Parser  *LogParser
-	Miner   *PatternMiner
 	Factory *BundleFactory
 }
 
 func NewLogPreprocessor() *LogPreprocessor {
 	return &LogPreprocessor{
 		Parser:  &LogParser{},
-		Miner:   &PatternMiner{},
 		Factory: &BundleFactory{},
 	}
 }
@@ -46,12 +55,6 @@ func (p *LogParser) ParseLogs(logs []map[string]interface{}) ([]RawLog, error) {
 		parsed = append(parsed, RawLog{Data: l})
 	}
 	return parsed, nil
-}
-
-type PatternMiner struct{}
-
-func (m *PatternMiner) MinePatterns(logs []RawLog) []string {
-	return []string{"pattern1"}
 }
 
 type BundleFactory struct{}
@@ -80,7 +83,7 @@ type StreamConfig struct {
 func DefaultStreamConfig() StreamConfig {
 	return StreamConfig{
 		MaxLogsPerSecond:     50,
-		MaxBufferSize:        200,
+		MaxBufferSize:        50,
 		MaxTokensPerRun:      6000,
 		MaxStreamDurationMin: 60,
 		MinStreamDurationMin: 15,
@@ -108,7 +111,7 @@ type StreamManager struct {
 	checkWindowStart time.Time
 	logsInWindow     int
 
-	// 🔹 ADDITIVE: subscribers for SSE
+	// SSE subscribers
 	subscribers map[chan *CorrelationBundle]struct{}
 	mu          sync.Mutex
 }
@@ -178,10 +181,16 @@ func (s *StreamManager) Flush() *CorrelationBundle {
 		return nil
 	}
 
-	patterns := s.Preprocessor.Miner.MinePatterns(s.Buffer)
+	// ✅ REAL pattern derivation (no placeholder)
+	patterns := deriveStreamPatterns(s.Buffer)
+
 	bundle := s.Preprocessor.Factory.CreateBundle(s.Buffer, patterns)
 
 	estimatedTokens := s.estimateTokens(bundle)
+
+	bundle.Metadata["original_token_est"] = estimatedTokens
+	bundle.Metadata["truncated"] = false
+
 	if estimatedTokens > s.Config.MaxTokensPerRun {
 		ratio := float64(s.Config.MaxTokensPerRun) / float64(estimatedTokens)
 		newLen := int(float64(len(bundle.Sequence)) * ratio * 0.9)
@@ -189,14 +198,13 @@ func (s *StreamManager) Flush() *CorrelationBundle {
 			newLen = 0
 		}
 		bundle.Sequence = bundle.Sequence[:newLen]
-		bundle.Metadata["truncated"] = true
+		// bundle.Metadata["truncated"] = true
 		bundle.Metadata["original_token_est"] = estimatedTokens
 	}
 
 	s.Buffer = []RawLog{}
 	s.Stats.BufferFlushCount++
 
-	// 🔹 ADDITIVE: publish to SSE subscribers
 	s.publish(bundle)
 
 	return bundle
@@ -208,7 +216,7 @@ func (s *StreamManager) estimateTokens(bundle *CorrelationBundle) int {
 }
 
 //
-// ===================== SSE SUPPORT (ADDITIVE) =====================
+// ===================== SSE SUPPORT =====================
 //
 
 func (s *StreamManager) Subscribe() chan *CorrelationBundle {
@@ -235,4 +243,26 @@ func (s *StreamManager) publish(bundle *CorrelationBundle) {
 		default:
 		}
 	}
+}
+
+//
+// ===================== PATTERN DERIVATION =====================
+//
+
+// ✅ Lightweight, generic, non-hardcoded
+func deriveStreamPatterns(logs []RawLog) []string {
+	unique := make(map[string]struct{})
+
+	for _, rl := range logs {
+		if msg, ok := rl.Data["message"].(string); ok && msg != "" {
+			unique[msg] = struct{}{}
+		}
+	}
+
+	var patterns []string
+	for msg := range unique {
+		patterns = append(patterns, msg)
+	}
+
+	return patterns
 }

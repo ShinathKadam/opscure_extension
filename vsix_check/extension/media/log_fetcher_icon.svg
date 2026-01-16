@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Log Fetcher Icon</title>
+  <desc id="desc">Rounded dark-blue square with a light-blue VS Code style X and a white document with folded corner</desc>
+
+  <rect x="8" y="8" width="496" height="496" rx="64" ry="64" fill="#0F3050"/>
+
+  <path d="M120 136
+           C112 128, 120 112, 136 112
+           L240 192
+           L184 240
+           L120 184
+           C108 172, 120 156, 120 136 Z"
+        fill="#59A7FF"/>
+  <path d="M392 136
+           C400 128, 392 112, 376 112
+           L272 192
+           L328 240
+           L392 184
+           C404 172, 392 156, 392 136 Z"
+        fill="#59A7FF"/>
+  <path d="M184 240 L240 288 L272 264 L328 312 L328 312 L272 368 L240 344 L184 392
+           C172 404, 156 392, 184 360 L240 304 L184 240 Z"
+        fill="#2B86E6" opacity="0.95"/>
+
+  <g transform="translate(280,200)">
+    <path d="M0 0 h150 a12 12 0 0 1 12 12 v156 a12 12 0 0 1 -12 12 h-150 a12 12 0 0 1 -12 -12 v-156 a12 12 0 0 1 12 -12 z"
+          fill="#FFFFFF" />
+    <path d="M150 0 v42 a8 8 0 0 1 -8 8 h-42 L150 0 z" fill="#F0F4F8"/>
+    <path d="M0 0 h150 v168 a12 12 0 0 1 -12 12 h-150 a12 12 0 0 1 -12 -12 v-156 a12 12 0 0 1 12 -12 z"
+          fill="none" stroke="#E6EEF8" stroke-width="1" opacity="0.7"/>
+    <rect x="20" y="72" rx="6" ry="6" width="110" height="14" fill="#E6EEF8"/>
+    <rect x="20" y="102" rx="6" ry="6" width="90" height="14" fill="#E6EEF8"/>
+    <rect x="20" y="132" rx="6" ry="6" width="70" height="14" fill="#E6EEF8"/>
+  </g>
+
+  <ellipse cx="370" cy="392" rx="80" ry="18" fill="#000000" opacity="0.08"/>
+</svg>

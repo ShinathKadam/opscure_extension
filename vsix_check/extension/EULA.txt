@@ -1,0 +1,93 @@
+OPSCURE END USER LICENSE AGREEMENT
+
+Last updated: 2026
+
+IMPORTANT: PLEASE READ THIS LICENSE CAREFULLY BEFORE USING THIS SOFTWARE.
+
+This End User License Agreement ("Agreement") is a legal agreement between you
+("User") and OPSCURE ("Company", "OPSCURE", "we", "us", or "our") governing your
+use of the OPSCURE Visual Studio Code Extension and its bundled Go sidecar agent
+(the "Software").
+
+By installing, copying, or otherwise using the Software, you agree to be bound
+by the terms of this Agreement. If you do not agree to these terms, do not install
+or use the Software.
+
+---------------------------------------------------------------------
+
+1. LICENSE GRANT
+
+OPSCURE grants you a limited, non-exclusive, non-transferable, revocable license
+to install and use the Software in its unmodified form solely for internal or
+commercial purposes, as distributed through official OPSCURE channels.
+
+This Software is licensed, not sold.
+
+---------------------------------------------------------------------
+
+2. RESTRICTIONS
+
+You may NOT, without prior written permission from OPSCURE:
+
+- modify, adapt, translate, or create derivative works of the Software
+- copy, redistribute, or mirror the Software outside official OPSCURE channels
+- reverse engineer, decompile, disassemble, or attempt to extract source code
+- sublicense, sell, rent, lease, or commercially exploit the Software
+- remove or alter any proprietary notices or branding
+
+---------------------------------------------------------------------
+
+3. OWNERSHIP
+
+The Software is owned and copyrighted by OPSCURE. All rights not expressly
+granted are reserved by OPSCURE.
+
+---------------------------------------------------------------------
+
+4. UPDATES AND TELEMETRY
+
+OPSCURE may provide updates, patches, or improvements. These may be automatically
+installed. The Software may collect limited operational data strictly for
+improving functionality, stability, and support.
+
+---------------------------------------------------------------------
+
+5. DISCLAIMER OF WARRANTIES
+
+THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE, SECURITY, OR NON-INFRINGEMENT.
+
+---------------------------------------------------------------------
+
+6. LIMITATION OF LIABILITY
+
+IN NO EVENT SHALL OPSCURE BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL,
+CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING BUT NOT LIMITED TO LOSS OF DATA,
+LOSS OF PROFITS, OR BUSINESS INTERRUPTION, ARISING OUT OF THE USE OR INABILITY
+TO USE THE SOFTWARE.
+
+---------------------------------------------------------------------
+
+7. TERMINATION
+
+This license is effective until terminated. It will terminate automatically if
+you violate any term of this Agreement. Upon termination, you must stop using and
+destroy all copies of the Software.
+
+---------------------------------------------------------------------
+
+8. GOVERNING LAW
+
+This Agreement shall be governed by and construed in accordance with the laws
+applicable to OPSCURE’s jurisdiction, without regard to conflict of law rules.
+
+---------------------------------------------------------------------
+
+9. CONTACT
+
+For licensing inquiries, contact OPSCURE through official channels.
+
+---------------------------------------------------------------------
+
+END OF AGREEMENT

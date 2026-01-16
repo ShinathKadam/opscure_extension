@@ -1,0 +1,29 @@
+OPSCURE SOFTWARE LICENSE AGREEMENT
+
+Copyright (c) 2026 OPSCURE.
+All rights reserved.
+
+This software and associated files (the "Software"), including but not limited to
+the OPSCURE Visual Studio Code Extension and its bundled Go sidecar agent, are the
+exclusive property of OPSCURE.
+
+Permission is granted to any individual or organization to install and use this
+Software in its unmodified form, solely as distributed by OPSCURE through the
+Visual Studio Marketplace or other official OPSCURE distribution channels.
+
+You are NOT permitted to, without prior written permission from OPSCURE:
+
+- modify, adapt, translate, or create derivative works of the Software
+- copy or redistribute the Software outside of official OPSCURE channels
+- reverse engineer, decompile, disassemble, or attempt to extract source code
+- sublicense, sell, rent, lease, or commercially exploit the Software
+- remove or alter any copyright, trademark, or proprietary notices
+
+This Software is licensed, not sold.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE, SECURITY, AND NONINFRINGEMENT. IN NO EVENT SHALL OPSCURE BE
+LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+USE OR OTHER DEALINGS IN THE SOFTWARE.

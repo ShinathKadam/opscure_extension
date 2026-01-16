@@ -1,3 +1,14 @@
+/*
+Copyright (c) 2026 OPSCURE.
+All rights reserved.
+
+This software is the confidential and proprietary information of OPSCURE.
+Unauthorized copying, modification, distribution, or use of this software,
+via any medium, is strictly prohibited without prior written permission.
+
+Licensed under the OPSCURE Software License Agreement.
+*/
+
 package main
 
 import (
@@ -14,6 +25,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"net"
+	"os/exec"
+	"sync"
+	"path/filepath"
 	"unicode/utf16"
 
 	"gopkg.in/yaml.v3"
@@ -46,6 +61,19 @@ type LogTarget struct {
 }
 
 var globalConfig *Config
+
+var fixClients = make(map[chan string]bool)
+var fixMu sync.Mutex
+var lastRollback []string
+var rollbackMu sync.Mutex
+
+var allowedPrefixes = []string{
+	"git ",
+	"sed ",
+	"echo ",
+	"docker ",
+	"kubectl ",
+}
 
 //
 // ================= STREAM MANAGER =================
@@ -189,7 +217,7 @@ func sourceFromConfig(app, key string) (LogSource, LogTarget, error) {
 
 var springLogRegex = regexp.MustCompile(
 	`^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)\s+` +
-		`(DEBUG|INFO|WARN|ERROR)\s+` +
+		`(TRACE|DEBUG|INFO|WARN|ERROR)\s+` +
 		`\d+\s+---\s+\[.*?\]\s+` +
 		`([^\s]+)\s*:\s*(.*)$`,
 )
@@ -198,10 +226,20 @@ func parseRawLogLine(line, severity string) map[string]interface{} {
 	m := springLogRegex.FindStringSubmatch(line)
 
 	if len(m) == 0 {
+		svc := "unknown"
+
+		// Try to extract service from last token before colon
+		if idx := strings.LastIndex(line, ":"); idx > 0 {
+			parts := strings.Fields(line[:idx])
+			if len(parts) > 0 {
+				svc = parts[len(parts)-1]
+			}
+		}
+
 		return map[string]interface{}{
 			"timestamp": time.Now().UTC().Format(time.RFC3339),
 			"level":     severity,
-			"service":   "unknown",
+			"service":   svc,
 			"message":   strings.TrimSpace(line),
 		}
 	}
@@ -278,6 +316,293 @@ func streamIngestHandler(w http.ResponseWriter, r *http.Request) {
 		"flushed":  flushed,
 		"bundle":   bundle,
 	})
+}
+
+type FixApplyRequest struct {
+    AIResponse map[string]interface{} `json:"ai_response"`
+    Workspace  string                 `json:"workspace"`
+    DryRun     bool                   `json:"dry_run"`
+}
+
+func fixApplyHandler(w http.ResponseWriter, r *http.Request) {
+	var req FixApplyRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid body", 400)
+		return
+	}
+
+	analyze, ok := req.AIResponse["analyze_response"].(map[string]interface{})
+	if !ok {
+		http.Error(w, "missing analyze_response", 400)
+		return
+	}
+
+	recBlock, ok := analyze["recommendation"].(map[string]interface{})
+	if !ok {
+		http.Error(w, "missing recommendation block", 400)
+		return
+	}
+
+	if auto, ok := recBlock["auto_heal_candidate"].(bool); ok && !auto {
+		http.Error(w, "AI marked fix unsafe", 403)
+		return
+	}
+
+	recs, ok := recBlock["recommendations"].([]interface{})
+	if !ok || len(recs) == 0 {
+		http.Error(w, "no recommendations found", 400)
+		return
+	}
+
+	first, _ := recs[0].(map[string]interface{})
+
+	// ---- rollback extraction ----
+	if rb, ok := first["rollback"].(map[string]interface{}); ok {
+      if arr, ok := rb["commands"].([]interface{}); ok {
+          rollbackMu.Lock()
+          lastRollback = nil
+          for _, c := range arr {
+              lastRollback = append(lastRollback, fmt.Sprintf("%v", c))
+          }
+          rollbackMu.Unlock()
+      }
+  	}
+
+
+	impl, ok := first["implementation"].(map[string]interface{})
+	if !ok {
+		http.Error(w, "no implementation found", 400)
+		return
+	}
+
+	cmdsAny, ok := impl["commands"].([]interface{})
+	if !ok || len(cmdsAny) == 0 {
+		http.Error(w, "no commands found", 400)
+		return
+	}
+
+	var cmds []string
+	for _, c := range cmdsAny {
+		cmds = append(cmds, fmt.Sprintf("%v", c))
+	}
+
+	go runFixWorkflow(cmds, req.Workspace, req.DryRun)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":   "started",
+		"commands": cmds,
+		"dry_run":  req.DryRun,
+	})
+}
+
+func findGitBash() string {
+	candidates := []string{
+		`C:\Program Files\Git\bin\bash.exe`,
+		`C:\Program Files\Git\usr\bin\bash.exe`,
+		`C:\Program Files (x86)\Git\bin\bash.exe`,
+		`C:\Program Files (x86)\Git\usr\bin\bash.exe`,
+	}
+
+	for _, p := range candidates {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return ""
+}
+
+func runGitOutput(workspace string, args ...string) (string, error) {
+	cmd := exec.Command(args[0], args[1:]...)
+	cmd.Dir = workspace
+	out, err := cmd.CombinedOutput()
+	return strings.TrimSpace(string(out)), err
+}
+
+func detectDefaultBranch(workspace string) string {
+	out, err := runGitOutput(workspace, "git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD")
+	if err == nil && strings.Contains(out, "/") {
+		parts := strings.Split(out, "/")
+		return parts[len(parts)-1]
+	}
+
+	// fallback
+	if _, err := runGitOutput(workspace, "git", "rev-parse", "--verify", "main"); err == nil {
+		return "main"
+	}
+	return "master"
+}
+
+func hasPushAccess(workspace string) bool {
+	_, err := runGitOutput(workspace, "git", "push", "--dry-run")
+	return err == nil
+}
+
+func runFixWorkflow(cmds []string, workspace string, dry bool) {
+	branch := detectDefaultBranch(workspace)
+	broadcastFix("INFO: detected default branch → " + branch)
+
+	for i, c := range cmds {
+		c = strings.ReplaceAll(c, "git checkout master", "git checkout "+branch)
+		c = strings.ReplaceAll(c, "git pull origin master", "git pull origin "+branch)
+		c = strings.ReplaceAll(c, "git push origin master", "git push origin "+branch)
+		c = strings.ReplaceAll(c, "git checkout main", "git checkout "+branch)
+		c = strings.ReplaceAll(c, "git pull origin main", "git pull origin "+branch)
+		c = strings.ReplaceAll(c, "git push origin main", "git push origin "+branch)
+		cmds[i] = c
+	}
+
+	// safety: check push permission once
+	if !dry && !hasPushAccess(workspace) {
+		broadcastFix("ERROR: No push permission for this repository. Aborting.")
+		broadcastFix("__CLOSE__")
+		return
+	}
+
+	if !filepath.IsAbs(workspace) {
+		broadcastFix("INVALID WORKSPACE PATH")
+		broadcastFix("__CLOSE__")
+		return
+	}
+
+	logFile := filepath.Join(workspace, ".opscure-fix.log")
+	f, _ := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	defer f.Close()
+
+	for _, cmd := range cmds {
+
+		if !isAllowed(cmd) {
+			broadcastFix("BLOCKED: " + cmd)
+			return
+		}
+
+		broadcastFix("RUN: " + cmd)
+
+		if dry {
+			broadcastFix("DRY-RUN")
+			continue
+		}
+
+		var c *exec.Cmd
+
+		if os.PathSeparator == '\\' {
+			gitBash := findGitBash()
+			if gitBash == "" {
+				broadcastFix("ERROR: Git Bash not found. Please install Git for Windows.")
+				broadcastFix("__CLOSE__")
+				return
+			}
+
+			// Git Bash
+			c = exec.Command(gitBash, "-lc", cmd)
+
+		} else {
+			// Linux / macOS
+			c = exec.Command("bash", "-lc", cmd)
+		}
+
+
+		c.Dir = workspace
+		stdout, _ := c.StdoutPipe()
+		stderr, _ := c.StderrPipe()
+
+		c.Start()
+		go streamPipe(stdout)
+		go streamPipe(stderr)
+
+		if err := c.Wait(); err != nil {
+			broadcastFix("ERROR: " + err.Error())
+			broadcastFix("AUTO-ROLLBACK")
+			
+			rollbackMu.Lock()
+			rb := append([]string{}, lastRollback...)
+			rollbackMu.Unlock()
+
+			if len(rb) > 0 {
+				runFixWorkflow(rb, workspace, false)
+			}
+
+			broadcastFix("WORKFLOW STOPPED")
+			broadcastFix("__CLOSE__")
+			return
+		}
+
+	}
+
+	broadcastFix("DONE")
+	broadcastFix("RESTART_APP")
+	broadcastFix("__CLOSE__")
+}
+
+func broadcastFix(msg string) {
+	fixMu.Lock()
+	for ch := range fixClients {
+		select {
+		case ch <- msg:
+		default:
+		}
+	}
+	fixMu.Unlock()
+}
+
+func fixStreamHandler(w http.ResponseWriter, r *http.Request) {
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "streaming unsupported", 400)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+
+	ch := make(chan string, 20)
+
+	fixMu.Lock()
+	fixClients[ch] = true
+	fixMu.Unlock()
+
+	defer func() {
+		fixMu.Lock()
+		delete(fixClients, ch)
+		fixMu.Unlock()
+		close(ch)
+	}()
+
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case msg := <-ch:
+			fmt.Fprintf(w, "data: %s\n\n", msg)
+			flusher.Flush()
+		}
+	}
+}
+
+func isAllowed(cmd string) bool {
+	l := strings.ToLower(strings.TrimSpace(cmd))
+	for _, p := range allowedPrefixes {
+		if strings.HasPrefix(l, p) {
+			return true
+		}
+	}
+	return false
+}
+
+func fixRollbackHandler(w http.ResponseWriter, r *http.Request) {
+    rollbackMu.Lock()
+    cmds := append([]string{}, lastRollback...)
+    rollbackMu.Unlock()
+
+    go runFixWorkflow(cmds, ".", false)
+    w.Write([]byte(`{"status":"rollback_started"}`))
+}
+
+func streamPipe(r io.ReadCloser) {
+	sc := bufio.NewScanner(r)
+	for sc.Scan() {
+		broadcastFix(sc.Text())
+	}
 }
 
 //
@@ -387,6 +712,15 @@ type PreprocessCombinedResponse struct {
 	AnalyzeResponse    json.RawMessage `json:"analyze_response"`
 }
 
+func firstNonEmpty(list []string) string {
+    for _, v := range list {
+        if v != "" {
+            return v
+        }
+    }
+    return ""
+}
+
 //
 // ================= PREPROCESS HANDLER (FIXED DYNAMICALLY) =================
 //
@@ -434,8 +768,21 @@ func preprocessHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(rawData) == 0 {
-		http.Error(w, "no logs found in payload", 400)
-		return
+		if bundle, ok := payload["bundle"].(map[string]interface{}); ok {
+			if patterns, ok := bundle["logPatterns"].([]interface{}); ok {
+				for _, p := range patterns {
+					if pm, ok := p.(map[string]interface{}); ok {
+						rawData = append(rawData, map[string]interface{}{
+							"timestamp": pm["firstOccurrence"],
+							"level":     "ERROR",
+							"service":   "unknown",
+							"message":   pm["pattern"],
+							"errorClass": pm["errorClass"],
+						})
+					}
+				}
+			}
+		}
 	}
 
 	processor := NewLogPreprocessorFullGo()
@@ -459,12 +806,25 @@ func preprocessHandler(w http.ResponseWriter, r *http.Request) {
 	// Convert bundle.Events ([]string) to []AnalyzeEvent
 	var events []AnalyzeEvent
 	if bundle.Events != nil {
-		for _, e := range bundle.Events {
-			events = append(events, AnalyzeEvent{Reason: e})
+		for i, e := range bundle.Events {
+			events = append(events, AnalyzeEvent{
+				ID:        fmt.Sprintf("evt_%d", i+1),
+				Type:      "observation",
+				Reason:    e,
+				Service:   firstNonEmpty(bundle.AffectedServices),
+				Timestamp: bundle.WindowStart,
+			})
 		}
 	} else {
 		events = []AnalyzeEvent{}
 	}
+
+	rootSvc := ""
+	if bundle.RootService != nil {
+		rootSvc = *bundle.RootService
+	}
+
+
 
 	// -------- EXISTING PREPROCESS RESPONSE (UNCHANGED) --------
 	preprocessResponse := AnalyzeResponse{
@@ -472,11 +832,12 @@ func preprocessHandler(w http.ResponseWriter, r *http.Request) {
 			ID:                   bundle.ID,
 			WindowStart:          bundle.WindowStart,
 			WindowEnd:            bundle.WindowEnd,
-			RootService:          "",
+			RootService:          rootSvc,
 			AffectedServices:     bundle.AffectedServices,
 			LogPatterns:          patterns,
 			Events:               events,
 			Metrics: AnalyzeMetrics{
+				CPUZ:       bundle.Metrics.CPUZ,
 				LatencyZ:   bundle.Metrics.LatencyZ,
 				ErrorRateZ: bundle.Metrics.ErrorRateZ,
 			},
@@ -493,7 +854,7 @@ func preprocessHandler(w http.ResponseWriter, r *http.Request) {
 	reqBody, _ := json.Marshal(preprocessResponse)
 	req, err := http.NewRequest(
 		http.MethodPost,
-		"http://3.19.71.20:8000/ai/analyze",
+		"http://18.191.159.155:8000/ai/analyze",
 		strings.NewReader(string(reqBody)),
 	)
 	if err != nil {
@@ -562,6 +923,33 @@ func toStringSlice(src interface{}) []string {
 	return out
 }
 
+func listenWithAutoPort(addr string) (net.Listener, string, error) {
+	// 1. Try requested port first (8080)
+	ln, err := net.Listen("tcp", addr)
+	if err == nil {
+		return ln, ln.Addr().String(), nil
+	}
+
+	fmt.Println("[OPSCURE] 8080 busy → selecting free port")
+
+	// 2. Ask OS for free port
+	ln, err = net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return nil, "", err
+	}
+
+	return ln, ln.Addr().String(), nil
+}
+
+func writeAgentPort(port string) {
+	exe, _ := os.Executable()
+	base := filepath.Dir(exe)
+
+	// extension reads: server/agent.port
+	p := filepath.Join(base, "agent.port")
+	_ = os.WriteFile(p, []byte(port), 0644)
+}
+
 //
 // ================= MAIN =================
 //
@@ -588,7 +976,24 @@ func main() {
 	http.HandleFunc("/stream/status", streamStatusHandler)
 	http.HandleFunc("/stream/live", streamLiveHandler)
 	http.HandleFunc("/logs/preprocess", preprocessHandler)
+	http.HandleFunc("/fix/apply", fixApplyHandler)
+	http.HandleFunc("/fix/stream", fixStreamHandler)
+	http.HandleFunc("/fix/rollback", fixRollbackHandler)
 
-	fmt.Println("Agent running on", *addr)
-	http.ListenAndServe(*addr, nil)
+	// AUTO PORT LOGIC
+	ln, actualAddr, err := listenWithAutoPort(*addr)
+	if err != nil {
+		panic(err)
+	}
+
+	_, port, _ := net.SplitHostPort(actualAddr)
+
+	// write port so VS Code extension can read
+	writeAgentPort(port)
+
+	fmt.Println("[OPSCURE] Agent running on", actualAddr)
+
+	if err := http.Serve(ln, nil); err != nil {
+		panic(err)
+	}
 }
