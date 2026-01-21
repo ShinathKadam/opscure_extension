@@ -1,163 +1,347 @@
-# Opscure VS Code Extension
-
----
-
+# 📘 Opscure VS Code Extension – Updated README
+# OPSCURE VS Code Extension
 ## 📌 Description
-**Opscure is a VS Code extension that helps developers fetch logs from a specified log file path, analyze them, and identify & fix issues using AI.**
-It simplifies debugging by continuously reading logs and providing AI-powered suggestions when issues are detected.
+
+Opscure is an AI-powered VS Code extension that runs a Go-based stream agent as a sidecar, captures live application logs directly from a terminal session, preprocesses them into structured bundles, and sends them to an AI pipeline to detect issues and recommend fixes.
+
+It is designed to provide a **continuous incident → analysis → remediation loop** directly inside VS Code.
+
+Opscure does not rely on manual log uploads. It launches your application, captures stdout/stderr in real time, batches logs, and streams them automatically to the Go agent.
 
 ---
 
-## ✅ Features
+## ✅ Key Features
 
-Fetch logs from a user-specified log file path
+- Run any application inside an OPSCURE-managed terminal
 
-Read latest logs from the bottom of the log file
+- Live capture of stdout and stderr
 
-Analyze logs for errors and warnings
+- Automatic severity detection (ERROR / WARN / INFO / DEBUG)
 
-AI-based issue detection and fix suggestions
+- Log batching and streaming to Go sidecar agent
 
-Secure handling of API keys using VS Code Secret Storage
+- /stream/ingest integration
 
----
+- Bundle-based preprocessing
 
-## 🔧 Pre-requisites
+- /logs/preprocess integration
 
-Before using the Opscure extension, ensure you have:
+- AI-powered incident and root-cause analysis
 
-Visual Studio Code
+- Structured timeline and bundle visualization
 
-Node.js
+- Embedded VS Code webview dashboard
 
-A valid log file path
+- Automatic Go agent startup
 
-An AI API key (stored securely)
-
-Application logs written to a file
+- Secure local-only communication (127.0.0.1)
 
 ---
 
-## 🧩 Installation Requirements & Setup
-### 1️⃣ Install Visual Studio Code
+## 🧠 How Opscure Works (High Level)
 
-Download and install VS Code from:
+1. Extension starts → Go agent is launched as a sidecar
 
-```arduino
+2. Agent writes its active port to server/agent.port
+
+3. Extension waits and connects automatically
+
+4. User runs an app using Opscure terminal
+
+5. Logs are captured live
+
+6. Logs are batched and sent to /stream/ingest
+
+7. Agent returns structured bundles
+
+8. Bundles are sent to /logs/preprocess
+
+9. AI analysis results are rendered inside VS Code
+
+---
+
+## 🔧 Pre-Setup Requirements
+
+Before running Opscure, make sure the following are installed:
+
+**1️⃣ Visual Studio Code**
+
+Latest stable recommended
 https://code.visualstudio.com/
+
+Verify:
+
+```bash
+code --version
 ```
 
-### 2️⃣ Install Node.js (Required)
+---
 
-Opscure requires Node.js to build and run the extension.
+**2️⃣ Node.js (Required for extension runtime)**
 
-Download Node.js (LTS version recommended):
-
-```arduino
+LTS version recommended
 https://nodejs.org/
-```
 
-Verify installation:
+Verify:
 
 ```bash
 node -v
 npm -v
 ```
 
-### 3️⃣ Install Git
+---
 
-Git is required to clone and manage the extension source code.
+## 3️⃣ Go (Required for the Opscure agent)
 
-Download Git:
+Required to build or modify the Go agent.
 
-```arduino
-https://git-scm.com/downloads
+https://go.dev/dl/
+
+Verify:
+
+```bash
+go version
 ```
 
-Verify installation:
+---
+
+**4️⃣ Git (Recommended)**
+
+https://git-scm.com/downloads
+
+Verify:
 
 ```bash
 git --version
 ```
 
-### 4️⃣ Install VS Code Extension Generator (For Development)
+**5️⃣ Application to Monitor**
 
-Required to create and scaffold VS Code extensions.
+Any application you want Opscure to run and observe, for example:
+
+- Spring Boot app
+
+- Node.js service
+
+- Python server
+
+- CLI tool
+
+- Microservice
+
+---
+
+## 📦 Project Setup
+
+Clone the repository:
 
 ```bash
-npm install -g yo generator-code
+git clone <your-repo-url>
+cd opscure-extension
 ```
 
-Verify:
+Install dependencies:
 
 ```bash
-yo --version
+npm install
+```
+
+Compile the extension:
+
+```bash
+npm run compile
+```
+
+Ensure the Go agent binary exists:
+
+```bash
+server/go-agent   (mac/linux)
+server/go-agent.exe (windows)
+```
+
+And the folder:
+
+```bash
+server/go_agent/
 ```
 
 ---
 
-## 🚀 How It Runs
-### 1️⃣ Configure Log File
-
-Ensure your application writes logs to a file.
-
-If your app runs locally and does not store logs, restart it using:
+## ▶️ Running the Extension (Developer Mode)
+**Step 1 – Open project in VS Code**
 
 ```bash
-your_command_here | Tee-Object -FilePath app.log
+code .
 ```
 
-Replace:
+---
 
-your_command_here → your application start command
+**Step 2 – Start Extension Host**
 
-app.log → desired log file name
+Press:
 
-### 2️⃣ Run the Extension Locally
+```nginx
+F5
+```
+
+This launches a new Extension Development Host window with Opscure loaded.
+
+---
+
+**Step 3 – Open Opscure Panel**
+
+Click the OPSCURE icon in the Activity Bar.
+
+You will see:
+
+- Captured Logs panel
+
+- Parsed logs panel
+
+- Preprocess response
+
+- Analyze response
+
+---
+
+**Step 4 – Start Capturing Logs**
+
+Click:
+
+```powershell
+Start
+```
+
+You will be prompted:
+
+```vbnet
+Enter command to run with OPSCURE
+```
+
+Example:
 
 ```bash
-npm install
-npm run compile
+npm start
+mvn spring-boot:run
+python app.py
+java -jar app.jar
 ```
 
-Press F5 in VS Code to launch the extension in a new Extension Development Host window.
+Opscure will:
 
-### 3️⃣ Log Analysis Flow
+- Launch the process
 
-Opscure reads logs continuously
+- Create a managed terminal
 
-Latest logs are fetched from the bottom of the file
+- Capture all logs automatically
 
-Logs are sent to the AI engine
+---
 
-Detected issues and fixes are displayed inside VS Code
+**Step 5 – Observe Live Logs**
+
+You will see logs appearing in:
+
+- ✅ Captured Logs
+
+- ✅ Parsed Logs
+
+Once bundles are formed, the Analyze button becomes available.
+
+---
+
+**Step 6 – Trigger AI Analysis**
+
+Click:
+
+```nginx
+Analyze
+```
+
+Opscure will:
+
+- Combine all stored bundles
+
+- Send them to /logs/preprocess
+
+- Display AI responses in the UI
+
+---
+
+## 🔄 Runtime Flow
+
+```bash
+Application → Opscure Terminal → Log Capture
+        ↓
+Batching (50 logs)
+        ↓
+/stream/ingest
+        ↓
+Bundle store
+        ↓
+/logs/preprocess
+        ↓
+AI Analysis
+        ↓
+VS Code UI
+```
 
 ---
 
 ## 🔐 Security
 
-API keys and UUIDs are stored using VS Code Secret Storage
+- Go agent runs locally
 
-No secrets are committed or logged
+- Uses dynamic local port binding
 
-Secure communication with AI services
+- No logs are sent without user execution
+
+- No external exposure
+
+- Agent lifecycle is bound to extension
+
+- Process is killed automatically on extension shutdown
 
 ---
 
-## 📦 Supported Logs
+## 📂 Supported Inputs
 
-Backend application logs
+- Backend services
 
-Server logs
+- CLI tools
 
-Service logs
+- Build systems (maven, gradle, npm, go)
 
-Custom text-based log files
+- Microservices
+
+- Long-running servers
+
+- Batch jobs
+
+---
+
+## 🛠 Troubleshooting
+**Agent not detected**
+
+Ensure:
+
+```bash
+server/agent.port
+```
+
+is being written by the Go agent.
+
+**No logs appearing**
+
+Make sure the command actually produces stdout/stderr.
+
+**Analyze button not showing**
+
+At least one valid bundle must be received from ```/stream/ingest```.
 
 ---
 
 ## 📄 License
 
-MIT License
+MIT License (or your internal OPSCURE license)
 
 ---
